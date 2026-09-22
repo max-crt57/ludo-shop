@@ -129,7 +129,7 @@ class PromotionServiceTest extends TestCase
         float $price,
         float $promoPrice,
         \DateTimeImmutable $startsAt,
-        \DateTimeImmutable $endsAt
+        \DateTimeImmutable $endsAt,
     ): Product {
         $product = new Product();
 
