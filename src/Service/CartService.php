@@ -10,13 +10,16 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class CartService
 {
-    public function __construct(private readonly EntityManagerInterface $entityManager)
-    {
+    public function __construct(
+        private readonly EntityManagerInterface $entityManager,
+        private readonly PromotionService $promotionService,
+    ) {
     }
 
     public function getOrCreateCart(User $user): Cart
     {
         $cart = $this->entityManager->getRepository(Cart::class)->findOneBy(['user' => $user]);
+
         if (null === $cart) {
             $cart = new Cart($user);
             $this->entityManager->persist($cart);
@@ -42,9 +45,13 @@ class CartService
 
         $item = new CartItem($product);
         $item->setQuantity($quantity);
-        $item->setUnitPrice($product->getPrice());
+        $item->setUnitPrice(
+            $this->promotionService->getCurrentPrice($product)
+        );
+
         $cart->addItem($item);
         $cart->touch();
+
         $this->entityManager->persist($item);
         $this->entityManager->flush();
     }
@@ -52,6 +59,7 @@ class CartService
     public function setQuantity(Cart $cart, CartItem $item, int $quantity): void
     {
         $product = $item->getProduct();
+
         if ($quantity > $product->getStock()) {
             throw new \DomainException(sprintf('Stock insuffisant pour le produit « %s » (%d disponible(s)).', $product->getName(), $product->getStock()));
         }
@@ -81,6 +89,7 @@ class CartService
             $cart->removeItem($item);
             $this->entityManager->remove($item);
         }
+
         $cart->touch();
         $this->entityManager->flush();
     }
@@ -88,6 +97,7 @@ class CartService
     public function getTotal(Cart $cart): float
     {
         $total = 0.0;
+
         foreach ($cart->getItems() as $item) {
             $total += $item->getLineTotal();
         }
@@ -98,6 +108,7 @@ class CartService
     public function getItemCount(Cart $cart): int
     {
         $count = 0;
+
         foreach ($cart->getItems() as $item) {
             $count += $item->getQuantity();
         }
@@ -108,6 +119,7 @@ class CartService
     public function countForUser(User $user): int
     {
         $cart = $user->getCart();
+
         if (null === $cart) {
             return 0;
         }

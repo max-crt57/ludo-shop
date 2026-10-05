@@ -9,6 +9,7 @@ use App\Entity\CartItem;
 use App\Entity\Product;
 use App\Entity\User;
 use App\Service\CartService;
+use App\Service\PromotionService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 
@@ -19,8 +20,9 @@ class CartServiceTest extends TestCase
     protected function setUp(): void
     {
         $em = $this->createStub(EntityManagerInterface::class);
+        $promotionService = $this->createStub(PromotionService::class);
 
-        $this->service = new CartService($em);
+        $this->service = new CartService($em, $promotionService);
     }
 
     public function testEmptyCartReturnsZero(): void
@@ -92,5 +94,36 @@ class CartServiceTest extends TestCase
         $cart->addItem($item);
 
         $this->assertSame(75.00, $this->service->getTotal($cart));
+    }
+
+    public function testPromotionalPriceIsUsed(): void
+    {
+        $user = $this->createStub(User::class);
+        $cart = new Cart($user);
+
+        $product = new Product();
+        $product->setName('Catan');
+        $product->setPrice(50.00);
+        $product->setStock(10);
+        $product->setPromoPrice(35.00);
+        $product->setPromoStartsAt(
+            new \DateTimeImmutable('2026-01-01T00:00:00')
+        );
+        $product->setPromoEndsAt(
+            new \DateTimeImmutable('2099-01-01T00:00:00')
+        );
+
+        $promotionService = $this->createStub(PromotionService::class);
+        $promotionService
+            ->method('getCurrentPrice')
+            ->willReturn(35.00);
+
+        $em = $this->createStub(EntityManagerInterface::class);
+
+        $service = new CartService($em, $promotionService);
+
+        $service->addProduct($cart, $product, 2);
+
+        $this->assertSame(70.00, $service->getTotal($cart));
     }
 }
